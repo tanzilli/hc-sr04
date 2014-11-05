@@ -29,24 +29,24 @@ static ktime_t echo_end;
 static ssize_t hcshr04_trigger(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
 	printk(KERN_INFO "Buffer len %d bytes\n", len);
 	gpio_set_value(HCSR04_TRIGGER,0);
-	
+
 	udelay(10);
-	
+
 	gpio_set_value(HCSR04_TRIGGER,1);
 	return len;
 }
-	
+
 // Sysfs definitions for hcsr04 class
 static struct class_attribute hcsr04_class_attrs[] = {
-   __ATTR(trigger,   0200, NULL, hcsr04_trigger),
-   __ATTR_NULL,
+	__ATTR(trigger,	0200, NULL, hcsr04_trigger),
+	__ATTR_NULL,
 };
 
 // Name of directory created in /sys/class
 static struct class hcsr04_class = {
-  .name =        "hcsr04",
-  .owner =       THIS_MODULE,
-  .class_attrs = hcsr04_class_attrs,
+	.name =			"hcsr04",
+	.owner =		THIS_MODULE,
+	.class_attrs =	hcsr04_class_attrs,
 };
 
 static irqreturn_t gpio_isr(int irq, void *data)
@@ -67,10 +67,10 @@ static int hcsr04_init(void)
 {	
 	int rtc;
 	
-    printk(KERN_INFO "HC-SR04 driver v0.05 initializing.\n");
+	printk(KERN_INFO "HC-SR04 driver v0.05 initializing.\n");
 
 	if (class_register(&hcsr04_class)<0) goto fail;
-          
+
 	rtc=gpio_request(HCSR04_TRIGGER,"TRIGGER");
 	if (rtc!=0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
@@ -82,13 +82,13 @@ static int hcsr04_init(void)
 		printk(KERN_INFO "Error %d\n",__LINE__);
 		goto fail;
 	}
-	
+
 	rtc=gpio_direction_output(HCSR04_TRIGGER,0);
 	if (rtc!=0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
 		goto fail;
 	}
-	
+
 	rtc=gpio_direction_input(HCSR04_ECHO);
 	if (rtc!=0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
@@ -105,7 +105,7 @@ static int hcsr04_init(void)
 		gpio_irq=rtc;
 	}
 	
-    gpio_set_value(HCSR04_TRIGGER,1);
+	gpio_set_value(HCSR04_TRIGGER,1);
 
 
 	rtc = request_irq(gpio_irq, gpio_isr, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED, "hc-sr04.trigger", NULL);
@@ -131,7 +131,7 @@ static void hcsr04_exit(void)
 	gpio_free(HCSR04_TRIGGER);
 	gpio_free(HCSR04_ECHO);
 	class_unregister(&hcsr04_class);
-    printk(KERN_INFO "HC-SR04 disabled.\n");
+	printk(KERN_INFO "HC-SR04 disabled.\n");
 }
  
 module_init(hcsr04_init);
