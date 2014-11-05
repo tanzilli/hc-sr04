@@ -26,7 +26,7 @@ static ktime_t echo_end;
 // This function is called when you write something on /sys/class/hcsh04/trigger
 // passing in *buf the incoming content
 
-static ssize_t hcshr04_trigger(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
+static ssize_t hcsr04_trigger(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
 	printk(KERN_INFO "Buffer len %d bytes\n", len);
 	gpio_set_value(HCSR04_TRIGGER,0);
 
@@ -36,15 +36,26 @@ static ssize_t hcshr04_trigger(struct class *class, struct class_attribute *attr
 	return len;
 }
 
+static ssize_t hcsr04_trigger_read(struct class *class, struct class_attribute *attr, char *buf) {
+	buf[0]='A';
+	buf[1]='B';
+	buf[2]=0;
+	
+	printk(KERN_INFO "Read\n");
+	return 2;
+}
+
+
+
 // Sysfs definitions for hcsr04 class
 static struct class_attribute hcsr04_class_attrs[] = {
-	__ATTR(trigger,	0200, NULL, hcsr04_trigger),
+	__ATTR(trigger,	S_IRUGO | S_IWUSR, hcsr04_trigger_read, hcsr04_trigger),
 	__ATTR_NULL,
 };
 
 // Name of directory created in /sys/class
 static struct class hcsr04_class = {
-	.name =			"hcsr04",
+	.name =			"hcsh04",
 	.owner =		THIS_MODULE,
 	.class_attrs =	hcsr04_class_attrs,
 };
@@ -104,9 +115,8 @@ static int hcsr04_init(void)
 		printk(KERN_INFO "gpio_to_irq(HCSR04_ECHO)=%d\n",rtc);
 		gpio_irq=rtc;
 	}
-	
-	gpio_set_value(HCSR04_TRIGGER,1);
 
+	gpio_set_value(HCSR04_TRIGGER,1);
 
 	rtc = request_irq(gpio_irq, gpio_isr, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED, "hc-sr04.trigger", NULL);
 
