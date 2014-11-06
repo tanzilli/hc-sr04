@@ -23,6 +23,7 @@ MODULE_DESCRIPTION("Driver for HC-SR04 ultrasonic sensor");
 static int gpio_irq=-1;
 static ktime_t echo_start;
 static ktime_t echo_end;
+static ktime_t echo_len;
  
 // This function is called when you write something on /sys/class/hcsr04/value
 static ssize_t hcsr04_value_write(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
@@ -34,10 +35,9 @@ static ssize_t hcsr04_value_write(struct class *class, struct class_attribute *a
 static ssize_t hcsr04_value_read(struct class *class, struct class_attribute *attr, char *buf) {
 
 	// Send a 10uS impulse to the TRIGGER line
-	gpio_set_value(HCSR04_TRIGGER,0);
-	//udelay(10);
-	mdelay(1000);
 	gpio_set_value(HCSR04_TRIGGER,1);
+	udelay(10);
+	gpio_set_value(HCSR04_TRIGGER,0);
 
 	// Return the value to user space
 	buf[0]='C';
@@ -46,7 +46,9 @@ static ssize_t hcsr04_value_read(struct class *class, struct class_attribute *at
 	buf[3]='O';
 	buf[4]='\n';
 
-	return 5;
+	mdelay(40);
+	//printk(KERN_INFO "\n%lld ns\n",ktime_to_ns(echo_len));
+	return sprintf(buf, "%lld\n", ktime_to_ns(echo_len));;
 }
 
 // Sysfs definitions for hcsr04 class
@@ -66,12 +68,12 @@ static irqreturn_t gpio_isr(int irq, void *data)
 {
 	if (gpio_get_value(HCSR04_ECHO)==1) {
 		echo_start=ktime_get();
-		printk(KERN_INFO "%lld\n",ktime_to_ms(echo_start));
+		//printk(KERN_INFO "Start%lld\n",ktime_to_ms(echo_start));
 	}
 	if (gpio_get_value(HCSR04_ECHO)==0) {
 		echo_end=ktime_get();
-		printk(KERN_INFO "%lld\n",ktime_to_ms(echo_end));
-		printk(KERN_INFO "%lld\n",ktime_to_ms(ktime_sub(echo_end,echo_start)));
+		//printk(KERN_INFO "%lld\n",ktime_to_ms(echo_end));
+		echo_len=ktime_sub(echo_end,echo_start);
 	}
 	return IRQ_HANDLED;
 }
@@ -80,7 +82,7 @@ static int hcsr04_init(void)
 {	
 	int rtc;
 	
-	printk(KERN_INFO "HC-SR04 driver v0.06 initializing.\n");
+	printk(KERN_INFO "HC-SR04 driver v0.12 initializing.\n");
 
 	if (class_register(&hcsr04_class)<0) goto fail;
 
@@ -108,7 +110,7 @@ static int hcsr04_init(void)
 		goto fail;
 	}
 
-	/* http://lwn.net/Articles/532714/ */
+	// http://lwn.net/Articles/532714/
 	rtc=gpio_to_irq(HCSR04_ECHO);
 	if (rtc<0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
@@ -118,7 +120,8 @@ static int hcsr04_init(void)
 		gpio_irq=rtc;
 	}
 
-	gpio_set_value(HCSR04_TRIGGER,1);
+	// Set the initial state of TRIGGER
+	gpio_set_value(HCSR04_TRIGGER,0);
 
 	rtc = request_irq(gpio_irq, gpio_isr, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED, "hc-sr04.trigger", NULL);
 
