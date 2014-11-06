@@ -16,6 +16,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Sergio Tanzilli");
 MODULE_DESCRIPTION("Driver for HC-SR04 ultrasonic sensor");
 
+// Change these two lines to use differents GPIOs
 #define HCSR04_TRIGGER	95 // J4.32 -   PC31
 #define HCSR04_ECHO  	91 // J4.30 -   PC27
  
@@ -24,14 +25,12 @@ static ktime_t echo_start;
 static ktime_t echo_end;
  
 // This function is called when you write something on /sys/class/hcsr04/value
-
 static ssize_t hcsr04_value_write(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
 	printk(KERN_INFO "Buffer len %d bytes\n", len);
 	return len;
 }
 
 // This function is called when you read /sys/class/hcsr04/value
-
 static ssize_t hcsr04_value_read(struct class *class, struct class_attribute *attr, char *buf) {
 
 	// Send a 10uS impulse to the TRIGGER line
