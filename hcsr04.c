@@ -17,10 +17,13 @@ MODULE_AUTHOR("Sergio Tanzilli");
 MODULE_DESCRIPTION("Driver for HC-SR04 ultrasonic sensor");
 
 // Change these two lines to use differents GPIOs
-#define HCSR04_TRIGGER	95 // J4.32 -   PC31
-#define HCSR04_ECHO  	91 // J4.30 -   PC27
+#define HCSR04_ECHO		95 // J4.32 -   PC31
+#define HCSR04_TRIGGER	91 // J4.30 -   PC27
+//#define HCSR04_TEST  	 5 // J4.28 -   PA5
  
 static int gpio_irq=-1;
+static int valid_value = 0;
+
 static ktime_t echo_start;
 static ktime_t echo_end;
  
@@ -32,17 +35,24 @@ static ssize_t hcsr04_value_write(struct class *class, struct class_attribute *a
 
 // This function is called when you read /sys/class/hcsr04/value
 static ssize_t hcsr04_value_read(struct class *class, struct class_attribute *attr, char *buf) {
+	int counter;
 
 	// Send a 10uS impulse to the TRIGGER line
 	gpio_set_value(HCSR04_TRIGGER,1);
 	udelay(10);
 	gpio_set_value(HCSR04_TRIGGER,0);
+	valid_value=0;
 
-	echo_start=ktime_get();
-	echo_end=echo_start;
-
-	mdelay(200);
-	//printk(KERN_INFO "\n%lld us\n",ktime_to_us(echo_len));
+	counter=0;
+	while (valid_value==0) {
+		// Out of range
+		if (++counter>23200) {
+			return sprintf(buf, "%d\n", -1);;
+		}
+		udelay(1);
+	}
+	
+	//printk(KERN_INFO "Sub: %lld\n", ktime_to_us(ktime_sub(echo_end,echo_start)));
 	return sprintf(buf, "%lld\n", ktime_to_us(ktime_sub(echo_end,echo_start)));;
 }
 
@@ -59,18 +69,24 @@ static struct class hcsr04_class = {
 	.class_attrs =	hcsr04_class_attrs,
 };
 
+// Interrupt handler on ECHO signal
 static irqreturn_t gpio_isr(int irq, void *data)
 {
 	ktime_t ktime_dummy;
 
-	ktime_dummy=ktime_get();
+	//gpio_set_value(HCSR04_TEST,1);
 
-	if (gpio_get_value(HCSR04_ECHO)==1) {
-		echo_start=ktime_dummy;
+	if (valid_value==0) {
+		ktime_dummy=ktime_get();
+		if (gpio_get_value(HCSR04_ECHO)==1) {
+			echo_start=ktime_dummy;
+		} else {
+			echo_end=ktime_dummy;
+			valid_value=1;
+		}
 	}
-	if (gpio_get_value(HCSR04_ECHO)==0) {
-		echo_end=ktime_dummy;
-	}
+
+	//gpio_set_value(HCSR04_TEST,0);
 	return IRQ_HANDLED;
 }
 
@@ -78,9 +94,21 @@ static int hcsr04_init(void)
 {	
 	int rtc;
 	
-	printk(KERN_INFO "HC-SR04 driver v0.17 initializing.\n");
+	printk(KERN_INFO "HC-SR04 driver v0.32 initializing.\n");
 
 	if (class_register(&hcsr04_class)<0) goto fail;
+
+	//rtc=gpio_request(HCSR04_TEST,"TEST");
+	//if (rtc!=0) {
+	//	printk(KERN_INFO "Error %d\n",__LINE__);
+	//	goto fail;
+	//}
+
+	//rtc=gpio_direction_output(HCSR04_TEST,0);
+	//if (rtc!=0) {
+	//	printk(KERN_INFO "Error %d\n",__LINE__);
+	//	goto fail;
+	//}
 
 	rtc=gpio_request(HCSR04_TRIGGER,"TRIGGER");
 	if (rtc!=0) {
@@ -115,10 +143,7 @@ static int hcsr04_init(void)
 		gpio_irq=rtc;
 	}
 
-	// Set the initial state of TRIGGER
-	gpio_set_value(HCSR04_TRIGGER,0);
-
-	rtc = request_irq(gpio_irq, gpio_isr, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED, "hc-sr04.trigger", NULL);
+	rtc = request_irq(gpio_irq, gpio_isr, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED , "hc-sr04.trigger", NULL);
 
 	if(rtc) {
 		printk(KERN_ERR "Unable to request IRQ: %d\n", rtc);
