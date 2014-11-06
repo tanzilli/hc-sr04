@@ -23,14 +23,14 @@ static int gpio_irq=-1;
 static ktime_t echo_start;
 static ktime_t echo_end;
  
-// This function is called when you write something on /sys/class/hcsh04/value
+// This function is called when you write something on /sys/class/hcsr04/value
 
 static ssize_t hcsr04_value_write(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
 	printk(KERN_INFO "Buffer len %d bytes\n", len);
 	return len;
 }
 
-// This function is called when you read /sys/class/hcsh04/value
+// This function is called when you read /sys/class/hcsr04/value
 
 static ssize_t hcsr04_value_read(struct class *class, struct class_attribute *attr, char *buf) {
 
@@ -58,7 +58,7 @@ static struct class_attribute hcsr04_class_attrs[] = {
 
 // Name of directory created in /sys/class
 static struct class hcsr04_class = {
-	.name =			"hcsh04",
+	.name =			"hcsr04",
 	.owner =		THIS_MODULE,
 	.class_attrs =	hcsr04_class_attrs,
 };
