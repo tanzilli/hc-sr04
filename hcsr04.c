@@ -23,7 +23,6 @@ MODULE_DESCRIPTION("Driver for HC-SR04 ultrasonic sensor");
 static int gpio_irq=-1;
 static ktime_t echo_start;
 static ktime_t echo_end;
-static ktime_t echo_len;
  
 // This function is called when you write something on /sys/class/hcsr04/value
 static ssize_t hcsr04_value_write(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
@@ -39,16 +38,12 @@ static ssize_t hcsr04_value_read(struct class *class, struct class_attribute *at
 	udelay(10);
 	gpio_set_value(HCSR04_TRIGGER,0);
 
-	// Return the value to user space
-	buf[0]='C';
-	buf[1]='I';
-	buf[2]='A';
-	buf[3]='O';
-	buf[4]='\n';
+	echo_start=ktime_get();
+	echo_end=echo_start;
 
-	mdelay(40);
-	//printk(KERN_INFO "\n%lld ns\n",ktime_to_ns(echo_len));
-	return sprintf(buf, "%lld\n", ktime_to_ns(echo_len));;
+	mdelay(200);
+	//printk(KERN_INFO "\n%lld us\n",ktime_to_us(echo_len));
+	return sprintf(buf, "%lld\n", ktime_to_us(ktime_sub(echo_end,echo_start)));;
 }
 
 // Sysfs definitions for hcsr04 class
@@ -66,14 +61,15 @@ static struct class hcsr04_class = {
 
 static irqreturn_t gpio_isr(int irq, void *data)
 {
+	ktime_t ktime_dummy;
+
+	ktime_dummy=ktime_get();
+
 	if (gpio_get_value(HCSR04_ECHO)==1) {
-		echo_start=ktime_get();
-		//printk(KERN_INFO "Start%lld\n",ktime_to_ms(echo_start));
+		echo_start=ktime_dummy;
 	}
 	if (gpio_get_value(HCSR04_ECHO)==0) {
-		echo_end=ktime_get();
-		//printk(KERN_INFO "%lld\n",ktime_to_ms(echo_end));
-		echo_len=ktime_sub(echo_end,echo_start);
+		echo_end=ktime_dummy;
 	}
 	return IRQ_HANDLED;
 }
@@ -82,7 +78,7 @@ static int hcsr04_init(void)
 {	
 	int rtc;
 	
-	printk(KERN_INFO "HC-SR04 driver v0.12 initializing.\n");
+	printk(KERN_INFO "HC-SR04 driver v0.17 initializing.\n");
 
 	if (class_register(&hcsr04_class)<0) goto fail;
 
@@ -116,7 +112,6 @@ static int hcsr04_init(void)
 		printk(KERN_INFO "Error %d\n",__LINE__);
 		goto fail;
 	} else {
-		printk(KERN_INFO "gpio_to_irq(HCSR04_ECHO)=%d\n",rtc);
 		gpio_irq=rtc;
 	}
 
