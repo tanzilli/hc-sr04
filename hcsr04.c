@@ -23,33 +23,36 @@ static int gpio_irq=-1;
 static ktime_t echo_start;
 static ktime_t echo_end;
  
-// This function is called when you write something on /sys/class/hcsh04/trigger
-// passing in *buf the incoming content
+// This function is called when you write something on /sys/class/hcsh04/value
 
-static ssize_t hcsr04_trigger(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
+static ssize_t hcsr04_value_write(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
 	printk(KERN_INFO "Buffer len %d bytes\n", len);
-	gpio_set_value(HCSR04_TRIGGER,0);
-
-	udelay(10);
-
-	gpio_set_value(HCSR04_TRIGGER,1);
 	return len;
 }
 
-static ssize_t hcsr04_trigger_read(struct class *class, struct class_attribute *attr, char *buf) {
-	buf[0]='A';
-	buf[1]='B';
-	buf[2]=0;
-	
-	printk(KERN_INFO "Read\n");
-	return 2;
+// This function is called when you read /sys/class/hcsh04/value
+
+static ssize_t hcsr04_value_read(struct class *class, struct class_attribute *attr, char *buf) {
+
+	// Send a 10uS impulse to the TRIGGER line
+	gpio_set_value(HCSR04_TRIGGER,0);
+	//udelay(10);
+	mdelay(1000);
+	gpio_set_value(HCSR04_TRIGGER,1);
+
+	// Return the value to user space
+	buf[0]='C';
+	buf[1]='I';
+	buf[2]='A';
+	buf[3]='O';
+	buf[4]='\n';
+
+	return 5;
 }
-
-
 
 // Sysfs definitions for hcsr04 class
 static struct class_attribute hcsr04_class_attrs[] = {
-	__ATTR(trigger,	S_IRUGO | S_IWUSR, hcsr04_trigger_read, hcsr04_trigger),
+	__ATTR(value,	S_IRUGO | S_IWUSR, hcsr04_value_read, hcsr04_value_write),
 	__ATTR_NULL,
 };
 
@@ -78,7 +81,7 @@ static int hcsr04_init(void)
 {	
 	int rtc;
 	
-	printk(KERN_INFO "HC-SR04 driver v0.05 initializing.\n");
+	printk(KERN_INFO "HC-SR04 driver v0.06 initializing.\n");
 
 	if (class_register(&hcsr04_class)<0) goto fail;
 
