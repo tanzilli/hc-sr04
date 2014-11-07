@@ -1,15 +1,8 @@
-import os
+f = open("/sys/class/hcsr04/value",'r')
+d=f.read()
+f.close()
 
-iopath="/sys/class/hcsr04/value"
-
-if os.path.exists(iopath): 
-	f = open(iopath + '/value','r')
-	d=f.read()
-	f.close()
-	
-	if (long(d)==-1):
-		print "N.A."
-	else:	
-		print "%ld cm" % (long(d)/58) 
-else:
-	print "Driver module not loaded"
+if (long(d)==-1):
+	print "N.A."
+else:	
+	print "%.1f cm" % (float(d)/58) 
