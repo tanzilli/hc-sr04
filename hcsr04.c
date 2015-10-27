@@ -1,3 +1,4 @@
+#include <linux/version.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/gpio.h>
@@ -20,7 +21,12 @@ MODULE_DESCRIPTION("Driver for HC-SR04 ultrasonic sensor");
 #define HCSR04_ECHO		95 // J4.32 -   PC31
 #define HCSR04_TRIGGER	91 // J4.30 -   PC27
 //#define HCSR04_TEST  	 5 // J4.28 -   PA5
- 
+
+// adaptation for kernels >= 4.1.0
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+    #define  IRQF_DISABLED 0
+#endif
+
 static int gpio_irq=-1;
 static int valid_value = 0;
 
