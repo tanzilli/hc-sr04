@@ -17,10 +17,8 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Sergio Tanzilli");
 MODULE_DESCRIPTION("Driver for HC-SR04 ultrasonic sensor");
 
-// Change these two lines to use differents GPIOs
-#define HCSR04_ECHO		95 // J4.32 -   PC31
-#define HCSR04_TRIGGER	91 // J4.30 -   PC27
-//#define HCSR04_TEST  	 5 // J4.28 -   PA5
+static int gpio_echo = 95;
+static int gpio_trigger = 91;
 
 // adaptation for kernels >= 4.1.0
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
@@ -32,6 +30,13 @@ static int valid_value = 0;
 
 static ktime_t echo_start;
 static ktime_t echo_end;
+
+/* Module param for GPIO configuration */
+module_param(gpio_trigger, int, 0);
+MODULE_PARM_DESC(gpio_trigger, "GPIO which HC-SR04 trigger is connected to. Defaults to 91");
+
+module_param(gpio_echo, int, 0);
+MODULE_PARM_DESC(gpio_echo, "GPIO which HC-SR04 echo is connected to. Defaults to 95");
  
 // This function is called when you write something on /sys/class/hcsr04/value
 static ssize_t hcsr04_value_write(struct class *class, struct class_attribute *attr, const char *buf, size_t len) {
@@ -44,9 +49,9 @@ static ssize_t hcsr04_value_read(struct class *class, struct class_attribute *at
 	int counter;
 
 	// Send a 10uS impulse to the TRIGGER line
-	gpio_set_value(HCSR04_TRIGGER,1);
+	gpio_set_value(gpio_trigger,1);
 	udelay(10);
-	gpio_set_value(HCSR04_TRIGGER,0);
+	gpio_set_value(gpio_trigger,0);
 	valid_value=0;
 
 	counter=0;
@@ -84,7 +89,7 @@ static irqreturn_t gpio_isr(int irq, void *data)
 
 	if (valid_value==0) {
 		ktime_dummy=ktime_get();
-		if (gpio_get_value(HCSR04_ECHO)==1) {
+		if (gpio_get_value(gpio_echo)==1) {
 			echo_start=ktime_dummy;
 		} else {
 			echo_end=ktime_dummy;
@@ -116,32 +121,32 @@ static int hcsr04_init(void)
 	//	goto fail;
 	//}
 
-	rtc=gpio_request(HCSR04_TRIGGER,"TRIGGER");
+	rtc=gpio_request(gpio_trigger,"TRIGGER");
 	if (rtc!=0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
 		goto fail;
 	}
 
-	rtc=gpio_request(HCSR04_ECHO,"ECHO");
+	rtc=gpio_request(gpio_echo,"ECHO");
 	if (rtc!=0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
 		goto fail;
 	}
 
-	rtc=gpio_direction_output(HCSR04_TRIGGER,0);
+	rtc=gpio_direction_output(gpio_trigger,0);
 	if (rtc!=0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
 		goto fail;
 	}
 
-	rtc=gpio_direction_input(HCSR04_ECHO);
+	rtc=gpio_direction_input(gpio_echo);
 	if (rtc!=0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
 		goto fail;
 	}
 
 	// http://lwn.net/Articles/532714/
-	rtc=gpio_to_irq(HCSR04_ECHO);
+	rtc=gpio_to_irq(gpio_echo);
 	if (rtc<0) {
 		printk(KERN_INFO "Error %d\n",__LINE__);
 		goto fail;
@@ -169,8 +174,8 @@ static void hcsr04_exit(void)
 	if (gpio_irq!=-1) {	
 		free_irq(gpio_irq, NULL);
 	}
-	gpio_free(HCSR04_TRIGGER);
-	gpio_free(HCSR04_ECHO);
+	gpio_free(gpio_trigger);
+	gpio_free(gpio_echo);
 	class_unregister(&hcsr04_class);
 	printk(KERN_INFO "HC-SR04 disabled.\n");
 }
